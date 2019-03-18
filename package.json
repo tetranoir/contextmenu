@@ -10,6 +10,12 @@
   "eslintConfig": {
     "extends": "react-app"
   },
+  "main": "ContextMenu.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tetranoir/contextmenu.git"
+  },
+  "keywords": ["react", "js", "context", "menu", "hooks"],
   "devDependencies": {
     "babel-eslint": "^9.0.0",
     "eslint": "^5.15.3",
