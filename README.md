@@ -45,8 +45,8 @@ Render your menu in your component:
 ContextMenu is built off hooks, which means you must render it within React functional components.
 
 ### useContextMenu(props)
- - `props` are optional
- - props shape:
+ - `props` is optional
+ - `props` shape:
 ```
 {
   submenuSymbol: jsx; // which means jsx component or string or null
@@ -75,5 +75,5 @@ ContextMenu is built off hooks, which means you must render it within React func
  - **[menu option name]** is used in conjection with **[option callback]** to create an option that does something
  - **[menu option name]** is used in conjection with another `menuConfig` to create a submenu
  - **[menu option name]** is used with `null` when the item is disabled
- - jsx shows custom renderings inside menu options (**[menu option name]** is unused here)
- - "---" is a shortcut to display a separation line between menu items (**[menu option name]** is unused)
+ - **[jsx]** shows custom renderings inside menu options (**[menu option name]** is unused here)
+ - **"---"** is a shortcut to display a separation line between menu items (**[menu option name]** is unused)
