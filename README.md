@@ -7,6 +7,9 @@ Using npm:
 $ npm i contextmenu
 ```
 
+## Demo
+[https://codesandbox.io/s/62lnq93k3r](https://codesandbox.io/s/62lnq93k3r)
+
 ## How To Use
 Import:
 ```jsx
