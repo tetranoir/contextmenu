@@ -1,8 +1,7 @@
 {
   "name": "contextmenu",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "license": "MIT",
-  "private": true,
   "dependencies": {
     "react": "^16.8.4",
     "react-dom": "^16.8.4"

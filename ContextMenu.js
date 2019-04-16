@@ -4,11 +4,16 @@ import ReactDOM from 'react-dom';
 
 
 // tooling
-function getRect(ref) {
-  if (!ref.current) {
+function getRect(el) {
+  if (!el) {
     return {};
   }
-  return ref.current.getBoundingClientRect();
+  return el.getBoundingClientRect();
+}
+
+function stopPropagation(e) {
+  e.stopPropagation();
+  e.nativeEvent.stopImmediatePropagation();
 }
 
 // helper component
@@ -42,12 +47,18 @@ function useSubmenu() {
     {
       submenuSymbol: the rhs of submenu items to distinguish from regular items
       depth: max number of sub menus
+      onOpen: on open conext menu,
+      onClose: on close context menu,
+      // maxHeight: max height of menus and submenus in px
     }
 */
 function useContextMenu(props = {}) {
   const defaultSettings = {
     submenuSymbol: '>',
     depth: 3,
+    onOpen: () => {},
+    onClose: () => {},
+    // maxHeight: undefined,
   };
   props = Object.assign(defaultSettings, props);
 
@@ -56,20 +67,22 @@ function useContextMenu(props = {}) {
   const [adjLoc, setAdjLoc] = useState({ top: 0, left: 0 }); // adjusted location
   const [path, setPath] = useState(null); // null or string[]
   const menuRef = useRef(null);
-  const subMenus = Array.apply(null, { length: props.depth }).map(e => useSubmenu());
+  const submenus = Array.apply(null, { length: props.depth }).map(e => useSubmenu());
 
   useLayoutEffect(() => {
     registerListeners();
     setAdjLoc(adjustMenuPosition(menuRef));
-    subMenus.forEach(subMenu => subMenu.setStyle({}));
+    submenus.forEach(submenu => submenu.setStyle({}));
+    props.onOpen();
     return unregisterListeners;
   }, [location]);
 
   useLayoutEffect(() => {
-    subMenus.forEach(subMenu => {
-      const rect = getRect(subMenu.ref);
-      if (rect.width + rect.x > window.innerWidth) {
-        subMenu.setStyle({right: 0, left: 'unset', marginRight: '100%'});
+    submenus.forEach(submenu => {
+      if (!submenu.ref || !submenu.ref.current) return;
+      const style = adjustSubmenuPosition(submenu.ref);
+      if (Object.values(style).length > 0) {
+        submenu.setStyle(style);
       }
     });
   }, [path]);
@@ -96,8 +109,58 @@ function useContextMenu(props = {}) {
   }
 
   function handleHover(currentPath, e) {
+    // reset some submenu styles here
+    const minpath = Math.min(currentPath.length, path.length);
+    let i = 0;
+    for (; i < minpath; i++) {
+      if (path[i] !== currentPath[i]) break;
+    }
+    for (;i < submenus.length; i++) {
+      submenus[i].setStyle({}); // reset styles
+    }
     // set path
     setPath(currentPath);
+  }
+
+  function adjustSubmenuPosition(submenuRef) {
+    if (submenuRef.current === null) {
+      return {};
+    }
+
+    const { innerWidth: windowWidth, innerHeight: windowHeight } = window;
+    const { width, height, x, y } = getRect(submenuRef.current);
+
+    const style = {};
+    if (width + x > windowWidth) {
+      style.right = 0;
+      style.left = 'unset';
+      style.marginRight = '100%';
+    }
+    if (height + y > windowHeight) {
+      style.top = windowHeight - height - y - 3;
+    }
+    return style;
+  }
+
+  function adjustMenuPosition(menuRef) {
+    if (menuRef.current === null) {
+      return { left: 0, top: 0 };
+    }
+
+    const { innerWidth: windowWidth, innerHeight: windowHeight } = window;
+    const { offsetWidth: menuWidth, offsetHeight: menuHeight } = menuRef.current;
+
+    let { left, top } = location;
+
+    if (left + menuWidth > windowWidth) {
+      left = windowWidth - menuWidth;
+    }
+
+    if (top + menuHeight > windowHeight) {
+      top = windowHeight - menuHeight;
+    }
+
+    return { left, top };
   }
 
   /*  renderMenuItem
@@ -105,8 +168,6 @@ function useContextMenu(props = {}) {
       - remaining paht: is the remaining path left after traversing
   */
   function renderMenuItem([itemName, itemValue], currentPath, remainingPath, i) {
-    const nbspItemName =  itemName.replace(/ /g, '\u00a0');
-
     // render function
     if (typeof itemValue === 'function') {
       // attach cb to menu item
@@ -116,14 +177,22 @@ function useContextMenu(props = {}) {
           onMouseDown={() => itemValue(itemName)}
           onMouseEnter={handleHover.bind(this, currentPath)}
         >
-          {nbspItemName}
+          {itemName}
         </div>
       );
     }
 
     // render jsx
     if (React.isValidElement(itemValue)) {
-      return React.cloneElement(itemValue, { key:  itemName })
+      return (
+        <div
+          key={itemName}
+          onMouseEnter={handleHover.bind(this, currentPath)}
+          onMouseDown={stopPropagation}
+        >
+          {itemValue}
+        </div>
+      );
     }
 
     // render dom element
@@ -135,7 +204,7 @@ function useContextMenu(props = {}) {
     // render disabled
     if (itemValue == null) {
       // render disabled
-      return <div key={itemName} className="menuItem disabled">{nbspItemName}</div>;
+      return <div key={itemName} className="menuItem disabled">{itemName}</div>;
     }
 
     // render submenu
@@ -144,10 +213,10 @@ function useContextMenu(props = {}) {
       if (remainingPath && remainingPath[0] === itemName) {
         // render submenu, menu class should be abs positioned
         return (
-          <div key={itemName} className="menuItem submenuItem highlight flex">
-            <div>{nbspItemName}</div>
+          <div key={itemName} className="menuItem rightShift highlight flex">
+            <div>{itemName}</div>
             <div>&nbsp;&nbsp;{props.submenuSymbol}</div>
-            {renderSubMenu(itemValue, [...currentPath, itemName], remainingPath.slice(1))}
+            {renderSubmenu(itemValue, [...currentPath, itemName], remainingPath.slice(1))}
           </div>
         );
       }
@@ -155,8 +224,8 @@ function useContextMenu(props = {}) {
       // todo: missing carat
       const handleHoverMenu = handleHover.bind(this, [...currentPath, itemName]);
       return (
-        <div key={itemName} className="menuItem submenuItem flex" onMouseEnter={handleHoverMenu}>
-          <div>{nbspItemName}</div>
+        <div key={itemName} className="menuItem rightShift flex" onMouseEnter={handleHoverMenu}>
+          <div>{itemName}</div>
           <div>&nbsp;&nbsp;{props.submenuSymbol}</div>
         </div>
       );
@@ -165,18 +234,18 @@ function useContextMenu(props = {}) {
     // render line separator
     const validString = typeof itemValue === 'string' && itemValue.length > 0;
     if (validString && itemValue.replace(/-|=/g, '') === '') {
-      return <hr key={'line' + i}></hr>;
+      return <hr key={'line' + i}/>;
     }
 
     // render disabled
-    return <div key={itemName} className="menuItem disabled">{nbspItemName}</div>;
+    return <div key={itemName} className="menuItem disabled">{itemName}</div>;
   }
 
-  function renderSubMenu(menu, currentPath, remainingPath) {
-    const subMenu = subMenus[currentPath.length - 1];
+  function renderSubmenu(menu, currentPath, remainingPath) {
+    const submenu = submenus[currentPath.length - 1];
 
     return (
-      <div ref={subMenu.ref} className="subMenu" style={subMenu.style}>
+      <div ref={submenu.ref} className="submenu" style={submenu.style}>
         {Object.entries(menu).map((item, i) => renderMenuItem(item, currentPath, remainingPath, i))}
       </div>
     );
@@ -193,25 +262,6 @@ function useContextMenu(props = {}) {
     );
   }
 
-  function adjustMenuPosition(menuRef) {
-    const { innerWidth: windowWidth, innerHeight: windowHeight } = window;
-    if (menuRef.current === null) {
-      return { left: 0, top: 0 };
-    }
-    const { offsetWidth: menuWidth, offsetHeight: menuHeight } = menuRef.current;
-    let { left, top } = location;
-
-    if (left + menuWidth > windowWidth) {
-      left = windowWidth - menuWidth;
-    }
-
-    if (top + menuHeight > windowHeight) {
-      top = windowHeight - menuHeight;
-    }
-
-    return { left, top };
-  }
-
   function setContextMenu(menuConfig) {
     return function triggerContextMenu(e) {
       setMenuConfig(menuConfig);
@@ -219,12 +269,13 @@ function useContextMenu(props = {}) {
       setPath([]);
 
       e.preventDefault();
-    }
+      e.stopPropagation();
+    };
   }
 
   const m = path && renderMenu(menuConfig, [], path);
   const contextMenu = ReactDOM.createPortal(m, document.body);
-  return [contextMenu, setContextMenu];
+  return [contextMenu, setContextMenu, closeMenu];
 }
 
 export default useContextMenu;
