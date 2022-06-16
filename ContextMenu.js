@@ -156,8 +156,9 @@ function useContextMenu(props = {}) {
       left = windowWidth - menuWidth;
     }
 
-    if (top + menuHeight > windowHeight) {
-      top = windowHeight - menuHeight;
+    const screenBottom = window.pageYOffset + windowHeight;
+    if (top + menuHeight > screenBottom) {
+      top = screenBottom - menuHeight;
     }
 
     return { left, top };

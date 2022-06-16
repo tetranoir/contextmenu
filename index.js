@@ -241,8 +241,10 @@ function useContextMenu() {
       left = windowWidth - menuWidth;
     }
 
-    if (top + menuHeight > windowHeight) {
-      top = windowHeight - menuHeight;
+    var screenBottom = window.pageYOffset + windowHeight;
+
+    if (top + menuHeight > screenBottom) {
+      top = screenBottom - menuHeight;
     }
 
     return {
